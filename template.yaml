@@ -1,0 +1,145 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: SAM Template for tinykit
+Parameters:
+  AppId:
+    Type: String
+    Description: A unique name for the deployment
+Globals:
+  Function:
+    Timeout: 3
+    MemorySize: 256
+    LoggingConfig:
+      LogFormat: JSON
+Resources:
+  ResourcesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub tinykit-${AppId}-rewards
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+  CampaignsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TableName: !Sub tinykit-${AppId}-campaigns
+      KeySchema:
+        - AttributeName: campaign_id
+          KeyType: HASH
+      AttributeDefinitions:
+        - AttributeName: campaign_id
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+  SubscriptionsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TableName: !Sub tinykit-${AppId}-subscriptions
+      KeySchema:
+        - AttributeName: campaign_id
+          KeyType: HASH
+        - AttributeName: subscription_id
+          KeyType: RANGE
+      AttributeDefinitions:
+        - AttributeName: campaign_id
+          AttributeType: S
+        - AttributeName: subscription_id
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+  EmailQueue:
+    Type: AWS::SQS::Queue
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      QueueName: !Sub tinykit-${AppId}-email
+      MessageRetentionPeriod: 345600
+      VisibilityTimeout: 240
+  FormRenderingFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: rust-cargolambda
+    Properties:
+      CodeUri: ./rust_app
+      Handler: bootstrap
+      Runtime: provided.al2023
+      Architectures:
+        - arm64
+      Events:
+        FormRender:
+          Type: Api
+          Properties:
+            Path: /form/{campaign_id}
+            Method: get
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref CampaignsTable
+      Environment:
+        Variables:
+          CAMPAIGNS_TABLE: !Ref CampaignsTable
+  SubscribeFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: rust-cargolambda
+    Properties:
+      CodeUri: ./rust_app
+      Handler: bootstrap
+      Runtime: provided.al2023
+      Architectures:
+        - arm64
+      Events:
+        FormRequest:
+          Type: Api
+          Properties:
+            Path: /form/{campaign_id}
+            Method: post
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref CampaignsTable
+        - DynamoDBWritePolicy:
+            TableName: !Ref SubscriptionsTable
+        - SQSSendMessagePolicy:
+            QueueName: !Ref EmailQueue
+      Environment:
+        Variables:
+          CAMPAIGNS_TABLE: !Ref CampaignsTable
+          SUBSCRIPTIONS_TABLE: !Ref SubscriptionsTable
+          EMAIL_QUEUE: !Ref EmailQueue
+  SendConfirmationFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: rust-cargolambda
+    Properties:
+      CodeUri: ./rust_app
+      Handler: bootstrap
+      Runtime: provided.al2023
+      Timeout: 120
+      Architectures:
+        - arm64
+      Events:
+        EmailQueueProcessing:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt EmailQueue.Arn
+            BatchSize: 10
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref CampaignsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SubscriptionsTable
+      Environment:
+        Variables:
+          CAMPAIGNS_TABLE: !Ref CampaignsTable
+          SUBSCRIPTIONS_TABLE: !Ref SubscriptionsTable
+Outputs:
+  APIPrefix:
+    Description: API Gateway endpoint URL for Prod stage for Hello World function
+    Value: !Sub https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/
