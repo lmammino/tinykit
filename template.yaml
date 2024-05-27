@@ -75,7 +75,7 @@ Resources:
         - arm64
       Events:
         FormRender:
-          Type: Api
+          Type: HttpApi
           Properties:
             Path: /form/{campaign_id}
             Method: get
@@ -97,7 +97,7 @@ Resources:
         - arm64
       Events:
         FormRequest:
-          Type: Api
+          Type: HttpApi
           Properties:
             Path: /form/{campaign_id}
             Method: post
@@ -151,7 +151,7 @@ Resources:
         - arm64
       Events:
         FormRequest:
-          Type: Api
+          Type: HttpApi
           Properties:
             Path: /subscription/{subscription_id}/confirm
             Method: get
@@ -179,7 +179,7 @@ Resources:
         - arm64
       Events:
         FormRequest:
-          Type: Api
+          Type: HttpApi
           Properties:
             Path: /subscription/{subscription_id}/opened
             Method: get
@@ -201,7 +201,7 @@ Resources:
         - arm64
       Events:
         FormRequest:
-          Type: Api
+          Type: HttpApi
           Properties:
             Path: /subscription/{subscription_id}/unsubscribe
             Method: get
@@ -214,4 +214,4 @@ Resources:
 Outputs:
   APIPrefix:
     Description: API Gateway endpoint URL for Prod stage for Hello World function
-    Value: !Sub https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/
+    Value: !Sub https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/
