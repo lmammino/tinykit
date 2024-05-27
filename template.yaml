@@ -68,7 +68,7 @@ Resources:
     Metadata:
       BuildMethod: rust-cargolambda
     Properties:
-      CodeUri: ./rust_app
+      CodeUri: ./lambdas/form_rendering
       Handler: bootstrap
       Runtime: provided.al2023
       Architectures:
@@ -90,7 +90,7 @@ Resources:
     Metadata:
       BuildMethod: rust-cargolambda
     Properties:
-      CodeUri: ./rust_app
+      CodeUri: ./lambdas/subscribe
       Handler: bootstrap
       Runtime: provided.al2023
       Architectures:
@@ -118,7 +118,7 @@ Resources:
     Metadata:
       BuildMethod: rust-cargolambda
     Properties:
-      CodeUri: ./rust_app
+      CodeUri: ./lambdas/send_confirmation
       Handler: bootstrap
       Runtime: provided.al2023
       Timeout: 120
@@ -138,6 +138,78 @@ Resources:
       Environment:
         Variables:
           CAMPAIGNS_TABLE: !Ref CampaignsTable
+          SUBSCRIPTIONS_TABLE: !Ref SubscriptionsTable
+  ConfirmSubscriptionFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: rust-cargolambda
+    Properties:
+      CodeUri: ./lambdas/confirm_subscription
+      Handler: bootstrap
+      Runtime: provided.al2023
+      Architectures:
+        - arm64
+      Events:
+        FormRequest:
+          Type: Api
+          Properties:
+            Path: /subscription/{subscription_id}/confirm
+            Method: get
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref CampaignsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SubscriptionsTable
+        - S3ReadPolicy:
+            BucketName: !Ref ResourcesBucket
+      Environment:
+        Variables:
+          CAMPAIGNS_TABLE: !Ref CampaignsTable
+          SUBSCRIPTIONS_TABLE: !Ref SubscriptionsTable
+          RESOURCES_BUCKET: !Ref ResourcesBucket
+  EmailOpenedFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: rust-cargolambda
+    Properties:
+      CodeUri: ./lambdas/email_opened
+      Handler: bootstrap
+      Runtime: provided.al2023
+      Architectures:
+        - arm64
+      Events:
+        FormRequest:
+          Type: Api
+          Properties:
+            Path: /subscription/{subscription_id}/opened
+            Method: get
+      Policies:
+        - DynamoDBWritePolicy:
+            TableName: !Ref SubscriptionsTable
+      Environment:
+        Variables:
+          SUBSCRIPTIONS_TABLE: !Ref SubscriptionsTable
+  UnsubscribeFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: rust-cargolambda
+    Properties:
+      CodeUri: ./lambdas/unsubscribe
+      Handler: bootstrap
+      Runtime: provided.al2023
+      Architectures:
+        - arm64
+      Events:
+        FormRequest:
+          Type: Api
+          Properties:
+            Path: /subscription/{subscription_id}/unsubscribe
+            Method: get
+      Policies:
+        - DynamoDBWritePolicy:
+            TableName: !Ref SubscriptionsTable
+      Environment:
+        Variables:
           SUBSCRIPTIONS_TABLE: !Ref SubscriptionsTable
 Outputs:
   APIPrefix:

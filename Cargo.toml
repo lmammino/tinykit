@@ -1,0 +1,10 @@
+[workspace]
+resolver = "2"
+members = [
+  "lambdas/confirm_subscription",
+  "lambdas/email_opened",
+  "lambdas/form_rendering",
+  "lambdas/send_confirmation",
+  "lambdas/subscribe",
+  "lambdas/unsubscribe",
+]
