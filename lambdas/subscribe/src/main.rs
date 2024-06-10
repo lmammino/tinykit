@@ -1,10 +1,10 @@
 use aws_sdk_dynamodb::types::AttributeValue;
-use lambda_http::aws_lambda_events::query_map::serde::aws_api_gateway_v2;
 use lambda_http::request::RequestContext;
 use lambda_http::{
     run, service_fn, tracing, Body, Error, Request, RequestExt, RequestPayloadExt, Response,
 };
 use serde::Deserialize;
+use serde_json::json;
 use std::env;
 use validators::models::Host;
 use validators::prelude::*;
@@ -29,15 +29,16 @@ struct Payload {
 }
 
 #[derive(Debug)]
-struct Config<'a> {
-    dynamodb_client: &'a aws_sdk_dynamodb::Client,
+struct Config {
+    dynamodb_client: aws_sdk_dynamodb::Client,
+    sqs_client: aws_sdk_sqs::Client,
     // TODO: SQS client
     campaigns_table: String,
     subscriptions_table: String,
     email_queue: String,
 }
 
-async fn function_handler(event: Request, config: &Config<'_>) -> Result<Response<Body>, Error> {
+async fn function_handler(event: Request, config: &Config) -> Result<Response<Body>, Error> {
     /*
        1. validate email
        2. validate campaign_id
@@ -111,6 +112,24 @@ async fn function_handler(event: Request, config: &Config<'_>) -> Result<Respons
         .await
         .expect("Failed to save subscription");
 
+    // 4. put send_confirmation_email job in the queue
+    let sqs_message_body = json!({
+        "subscription_id": subscription_id,
+        "campaign_id": campaign_id,
+        "email": payload.email,
+    });
+    let result = config
+        .sqs_client
+        .send_message()
+        .queue_url(&config.email_queue)
+        .message_body(serde_json::to_string(&sqs_message_body).unwrap())
+        .send()
+        .await;
+
+    // TODO: if this fails, we need to delete the subscription record and return a 502 error
+    let sqs_message_id = result.unwrap().message_id.unwrap();
+    tracing::info!(id = sqs_message_id, "Inserted message in the queue");
+
     let message = format!("Hello {campaign_id}, {}", payload.email);
 
     // TODO: start from here --- put message in the Queue
@@ -133,9 +152,11 @@ async fn main() -> Result<(), Error> {
 
     let config = aws_config::load_from_env().await;
     let dynamodb_client = aws_sdk_dynamodb::Client::new(&config);
+    let sqs_client = aws_sdk_sqs::Client::new(&config);
 
     let config = Config {
-        dynamodb_client: &dynamodb_client,
+        dynamodb_client,
+        sqs_client,
         campaigns_table,
         subscriptions_table,
         email_queue,

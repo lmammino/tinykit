@@ -107,12 +107,12 @@ Resources:
         - DynamoDBWritePolicy:
             TableName: !Ref SubscriptionsTable
         - SQSSendMessagePolicy:
-            QueueName: !Ref EmailQueue
+            QueueName: !GetAtt EmailQueue.QueueName
       Environment:
         Variables:
           CAMPAIGNS_TABLE: !Ref CampaignsTable
           SUBSCRIPTIONS_TABLE: !Ref SubscriptionsTable
-          EMAIL_QUEUE: !Ref EmailQueue
+          EMAIL_QUEUE: !GetAtt EmailQueue.QueueUrl
   SendConfirmationFunction:
     Type: AWS::Serverless::Function
     Metadata:
@@ -124,12 +124,12 @@ Resources:
       Timeout: 120
       Architectures:
         - arm64
-      Events:
-        EmailQueueProcessing:
-          Type: SQS
-          Properties:
-            Queue: !GetAtt EmailQueue.Arn
-            BatchSize: 10
+      # Events:
+      #   EmailQueueProcessing:
+      #     Type: SQS
+      #     Properties:
+      #       Queue: !GetAtt EmailQueue.Arn
+      #       BatchSize: 10
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref CampaignsTable
@@ -214,4 +214,4 @@ Resources:
 Outputs:
   APIPrefix:
     Description: API Gateway endpoint URL for Prod stage for Hello World function
-    Value: !Sub https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/
+    Value: !Sub https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/
