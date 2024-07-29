@@ -6,5 +6,5 @@ members = [
   "lambdas/form_rendering",
   "lambdas/send_confirmation",
   "lambdas/subscribe",
-  "lambdas/unsubscribe",
+  "lambdas/unsubscribe", "shared",
 ]

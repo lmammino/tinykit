@@ -5,6 +5,7 @@ use lambda_http::{
 };
 use serde::Deserialize;
 use serde_json::json;
+use shared::SubscribeEventPayload;
 use std::env;
 use validators::models::Host;
 use validators::prelude::*;
@@ -24,7 +25,7 @@ pub struct Email {
 }
 
 #[derive(Debug, Deserialize)]
-struct Payload {
+struct FormPayload {
     email: String,
 }
 
@@ -54,7 +55,7 @@ async fn function_handler(event: Request, config: &Config) -> Result<Response<Bo
         .first("campaign_id")
         .expect("Campaign ID missing");
 
-    let payload: Payload = event
+    let payload: FormPayload = event
         .payload()
         // TODO: properly handle these errors and return a response
         .expect("Invalid payload, could not deserialize.")
@@ -113,11 +114,11 @@ async fn function_handler(event: Request, config: &Config) -> Result<Response<Bo
         .expect("Failed to save subscription");
 
     // 4. put send_confirmation_email job in the queue
-    let sqs_message_body = json!({
-        "subscription_id": subscription_id,
-        "campaign_id": campaign_id,
-        "email": payload.email,
-    });
+    let sqs_message_body = SubscribeEventPayload {
+        subscription_id,
+        campaign_id: campaign_id.to_string(),
+        email: payload.email.clone(),
+    };
     let result = config
         .sqs_client
         .send_message()

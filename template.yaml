@@ -1,10 +1,13 @@
-AWSTemplateFormatVersion: '2010-09-09'
+AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 Description: SAM Template for tinykit
 Parameters:
   AppId:
     Type: String
     Description: A unique name for the deployment
+  SenderEmail:
+    Type: String
+    Description: The email address to send emails from
 Globals:
   Function:
     Timeout: 3
@@ -124,21 +127,25 @@ Resources:
       Timeout: 120
       Architectures:
         - arm64
-      # Events:
-      #   EmailQueueProcessing:
-      #     Type: SQS
-      #     Properties:
-      #       Queue: !GetAtt EmailQueue.Arn
-      #       BatchSize: 10
+      Events:
+        EmailQueueProcessing:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt EmailQueue.Arn
+            BatchSize: 10
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref CampaignsTable
         - DynamoDBCrudPolicy:
             TableName: !Ref SubscriptionsTable
+        - SESBulkTemplatedCrudPolicy:
+            IdentityName: !Ref SenderEmail
       Environment:
         Variables:
           CAMPAIGNS_TABLE: !Ref CampaignsTable
           SUBSCRIPTIONS_TABLE: !Ref SubscriptionsTable
+          SENDER_EMAIL: !Ref SenderEmail
+
   ConfirmSubscriptionFunction:
     Type: AWS::Serverless::Function
     Metadata:
