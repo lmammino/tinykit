@@ -8,6 +8,10 @@ Parameters:
   SenderEmail:
     Type: String
     Description: The email address to send emails from
+  TokenSecret:
+    Type: String
+    Description: A secret to sign tokens with
+    Default: "secret123456_WOW"
 Globals:
   Function:
     Timeout: 3
@@ -145,6 +149,8 @@ Resources:
           CAMPAIGNS_TABLE: !Ref CampaignsTable
           SUBSCRIPTIONS_TABLE: !Ref SubscriptionsTable
           SENDER_EMAIL: !Ref SenderEmail
+          CONFIRMATION_ENDPOINT: !Sub https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/subscription/confirm
+          TOKEN_SECRET: !Ref TokenSecret
 
   ConfirmSubscriptionFunction:
     Type: AWS::Serverless::Function
@@ -160,7 +166,7 @@ Resources:
         FormRequest:
           Type: HttpApi
           Properties:
-            Path: /subscription/{subscription_id}/confirm
+            Path: /subscription/confirm
             Method: get
       Policies:
         - DynamoDBReadPolicy:
