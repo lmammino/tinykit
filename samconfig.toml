@@ -20,7 +20,7 @@ resolve_s3 = true
 stack_name = "tinykit"
 s3_prefix = "tinykit"
 region = "eu-west-1"
-parameter_overrides = "AppId=\"tinykitdev\" SenderEmail=\"c3zfz@rowdydow.com\""
+parameter_overrides = "AppId=\"tinykitdev\" SenderEmail=\"wniml@starmail.net\""
 image_repositories = []
 
 [default.package.parameters]

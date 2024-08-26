@@ -180,6 +180,7 @@ Resources:
           CAMPAIGNS_TABLE: !Ref CampaignsTable
           SUBSCRIPTIONS_TABLE: !Ref SubscriptionsTable
           RESOURCES_BUCKET: !Ref ResourcesBucket
+          TOKEN_SECRET: !Ref TokenSecret
   EmailOpenedFunction:
     Type: AWS::Serverless::Function
     Metadata:
