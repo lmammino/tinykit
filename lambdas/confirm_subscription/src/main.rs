@@ -7,6 +7,8 @@ use lambda_http::{
 use shared::SubscribeConfirmationTokenClaims;
 use std::{env, time::Duration};
 
+include!(concat!(env!("OUT_DIR"), "/sam_env.rs"));
+
 struct Config {
     dynamodb_client: aws_sdk_dynamodb::Client,
     s3_client: aws_sdk_s3::Client,
@@ -99,11 +101,13 @@ async fn function_handler(event: Request, config: &Config) -> Result<Response<Bo
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    let sam_env = SamEnv::init_from_env().unwrap();
+
     // TODO: review if there's a better way to do this (maybe `clap` or `envconfig`)
-    let campaigns_table = env::var("CAMPAIGNS_TABLE").expect("CAMPAIGNS_TABLE missing");
-    let subscriptions_table = env::var("SUBSCRIPTIONS_TABLE").expect("SUBSCRIPTIONS_TABLE missing");
-    let token_secret = env::var("TOKEN_SECRET").expect("TOKEN_SECRET missing");
-    let resources_bucket = env::var("RESOURCES_BUCKET").expect("RESOURCES_BUCKET missing");
+    let campaigns_table = sam_env.campaigns_table;
+    let subscriptions_table = sam_env.subscriptions_table;
+    let token_secret = sam_env.token_secret;
+    let resources_bucket = sam_env.resources_bucket;
 
     let config = aws_config::load_from_env().await;
     let dynamodb_client = aws_sdk_dynamodb::Client::new(&config);
