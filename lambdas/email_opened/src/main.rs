@@ -1,4 +1,5 @@
 use lambda_http::{run, service_fn, tracing, Body, Error, Request, RequestExt, Response};
+include!(concat!(env!("OUT_DIR"), "/sam_env.rs"));
 
 /// This is the main body for the function.
 /// Write your code inside it.

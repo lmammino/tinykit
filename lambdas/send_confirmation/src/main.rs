@@ -4,15 +4,13 @@ use jsonwebtoken::{encode, EncodingKey, Header};
 use lambda_runtime::{run, service_fn, tracing, Error, LambdaEvent};
 use shared::{SubscribeConfirmationTokenClaims, SubscribeEventPayload};
 use std::env;
+include!(concat!(env!("OUT_DIR"), "/sam_env.rs"));
 
 struct Config {
+    env: SamEnv,
     dynamodb_client: aws_sdk_dynamodb::Client,
     ses_client: aws_sdk_ses::Client,
-    campaigns_table: String,
-    subscriptions_table: String,
-    sender_email: String,
-    token_secret: String,
-    confirmation_endpoint: String,
+    token_secret: EncodingKey,
 }
 
 async fn function_handler(event: LambdaEvent<SqsEvent>, config: &Config) -> Result<(), Error> {
@@ -37,13 +35,13 @@ async fn function_handler(event: LambdaEvent<SqsEvent>, config: &Config) -> Resu
             let confirmation_token_token = encode(
                 &Header::default(),
                 &confirmation_token_claims,
-                &EncodingKey::from_secret(config.token_secret.as_ref()),
+                &config.token_secret,
             )?;
             tracing::info!("Confirmation token: {}", confirmation_token_token);
 
             let confirmation_url = format!(
                 "{}?token={}",
-                config.confirmation_endpoint, confirmation_token_token
+                config.env.confirmation_endpoint, confirmation_token_token
             );
             tracing::info!("Confirmation url: {}", confirmation_url);
 
@@ -74,7 +72,7 @@ async fn function_handler(event: LambdaEvent<SqsEvent>, config: &Config) -> Resu
             let send_result = config
                 .ses_client
                 .send_email()
-                .source(&config.sender_email)
+                .source(&config.env.sender_email)
                 .destination(
                     Destination::builder()
                         .to_addresses(&sqs_message.email)
@@ -95,24 +93,18 @@ async fn function_handler(event: LambdaEvent<SqsEvent>, config: &Config) -> Resu
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let campaigns_table = env::var("CAMPAIGNS_TABLE").expect("CAMPAIGNS_TABLE missing");
-    let subscriptions_table = env::var("SUBSCRIPTIONS_TABLE").expect("SUBSCRIPTIONS_TABLE missing");
-    let sender_email = env::var("SENDER_EMAIL").expect("SENDER_EMAIL missing");
-    let token_secret = env::var("TOKEN_SECRET").expect("TOKEN_SECRET missing");
-    let confirmation_endpoint = env::var("CONFIRMATION_ENDPOINT").expect("API_GATEWAY_URL missing");
+    let env = SamEnv::init_from_env().unwrap();
 
     let config = aws_config::load_from_env().await;
     let dynamodb_client = aws_sdk_dynamodb::Client::new(&config);
     let ses_client = aws_sdk_ses::Client::new(&config);
+    let token_secret = EncodingKey::from_secret(env.token_secret.as_ref());
 
     let config = Config {
+        env,
         dynamodb_client,
         ses_client,
-        campaigns_table,
-        subscriptions_table,
-        sender_email,
         token_secret,
-        confirmation_endpoint,
     };
 
     tracing::init_default_subscriber();
