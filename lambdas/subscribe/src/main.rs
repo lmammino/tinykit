@@ -4,11 +4,11 @@ use lambda_http::{
     run, service_fn, tracing, Body, Error, Request, RequestExt, RequestPayloadExt, Response,
 };
 use serde::Deserialize;
-use serde_json::json;
 use shared::SubscribeEventPayload;
 use std::env;
 use validators::models::Host;
 use validators::prelude::*;
+include!(concat!(env!("OUT_DIR"), "/sam_env.rs"));
 
 #[derive(Validator)]
 #[validator(email(
@@ -31,12 +31,9 @@ struct FormPayload {
 
 #[derive(Debug)]
 struct Config {
+    env: SamEnv,
     dynamodb_client: aws_sdk_dynamodb::Client,
     sqs_client: aws_sdk_sqs::Client,
-    // TODO: SQS client
-    campaigns_table: String,
-    subscriptions_table: String,
-    email_queue: String,
 }
 
 async fn function_handler(event: Request, config: &Config) -> Result<Response<Body>, Error> {
@@ -74,7 +71,7 @@ async fn function_handler(event: Request, config: &Config) -> Result<Response<Bo
     let campaign = config
         .dynamodb_client
         .get_item()
-        .table_name(&config.campaigns_table)
+        .table_name(&config.env.campaigns_table)
         .key("campaign_id", AttributeValue::S(campaign_id.to_string()))
         .send()
         .await
@@ -101,7 +98,7 @@ async fn function_handler(event: Request, config: &Config) -> Result<Response<Bo
     config
         .dynamodb_client
         .put_item()
-        .table_name(&config.subscriptions_table)
+        .table_name(&config.env.subscriptions_table)
         .item(
             "subscription_id",
             AttributeValue::S(subscription_id.to_string()),
@@ -122,7 +119,7 @@ async fn function_handler(event: Request, config: &Config) -> Result<Response<Bo
     let result = config
         .sqs_client
         .send_message()
-        .queue_url(&config.email_queue)
+        .queue_url(&config.env.email_queue)
         .message_body(serde_json::to_string(&sqs_message_body).unwrap())
         .send()
         .await;
@@ -147,20 +144,16 @@ async fn function_handler(event: Request, config: &Config) -> Result<Response<Bo
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let campaigns_table = env::var("CAMPAIGNS_TABLE").expect("CAMPAIGNS_TABLE missing");
-    let subscriptions_table = env::var("SUBSCRIPTIONS_TABLE").expect("SUBSCRIPTIONS_TABLE missing");
-    let email_queue = env::var("EMAIL_QUEUE").expect("EMAIL_QUEUE missing");
+    let env = SamEnv::init_from_env().unwrap();
 
     let config = aws_config::load_from_env().await;
     let dynamodb_client = aws_sdk_dynamodb::Client::new(&config);
     let sqs_client = aws_sdk_sqs::Client::new(&config);
 
     let config = Config {
+        env,
         dynamodb_client,
         sqs_client,
-        campaigns_table,
-        subscriptions_table,
-        email_queue,
     };
 
     tracing::init_default_subscriber();

@@ -1030,7 +1030,9 @@ dependencies = [
 name = "email_opened"
 version = "0.1.0"
 dependencies = [
+ "envconfig",
  "lambda_http",
+ "sam_env",
  "tokio",
 ]
 
@@ -2354,8 +2356,10 @@ dependencies = [
  "aws-sdk-ses",
  "aws_lambda_events",
  "cuid",
+ "envconfig",
  "jsonwebtoken",
  "lambda_runtime",
+ "sam_env",
  "serde_json",
  "shared",
  "tokio",
@@ -2585,7 +2589,9 @@ dependencies = [
  "aws-sdk-dynamodb",
  "aws-sdk-sqs",
  "cuid",
+ "envconfig",
  "lambda_http",
+ "sam_env",
  "serde",
  "serde_json",
  "shared",
@@ -2925,7 +2931,9 @@ checksum = "673aac59facbab8a9007c7f6108d11f63b603f7cabff99fabf650fea5c32b861"
 name = "unsubscribe"
 version = "0.1.0"
 dependencies = [
+ "envconfig",
  "lambda_http",
+ "sam_env",
  "tokio",
 ]
 

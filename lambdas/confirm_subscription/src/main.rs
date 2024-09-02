@@ -10,12 +10,10 @@ use std::{env, time::Duration};
 include!(concat!(env!("OUT_DIR"), "/sam_env.rs"));
 
 struct Config {
+    env: SamEnv,
     dynamodb_client: aws_sdk_dynamodb::Client,
     s3_client: aws_sdk_s3::Client,
-    campaigns_table: String,
-    subscriptions_table: String,
     decoding_key: DecodingKey,
-    resources_bucket: String,
 }
 
 async fn function_handler(event: Request, config: &Config) -> Result<Response<Body>, Error> {
@@ -54,7 +52,7 @@ async fn function_handler(event: Request, config: &Config) -> Result<Response<Bo
     let get_campaign_result = config
         .dynamodb_client
         .get_item()
-        .table_name(config.campaigns_table.clone())
+        .table_name(config.env.campaigns_table.clone())
         .key(
             "campaign_id",
             AttributeValue::S(token_data.claims.campaign_id.clone()),
@@ -84,7 +82,7 @@ async fn function_handler(event: Request, config: &Config) -> Result<Response<Bo
     let presigned_request = config
         .s3_client
         .get_object()
-        .bucket(&config.resources_bucket)
+        .bucket(&config.env.resources_bucket)
         .key(reward_s3_key)
         .presigned(PresigningConfig::expires_in(expires_in)?)
         .await?;
@@ -101,27 +99,18 @@ async fn function_handler(event: Request, config: &Config) -> Result<Response<Bo
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let sam_env = SamEnv::init_from_env().unwrap();
-
-    // TODO: review if there's a better way to do this (maybe `clap` or `envconfig`)
-    let campaigns_table = sam_env.campaigns_table;
-    let subscriptions_table = sam_env.subscriptions_table;
-    let token_secret = sam_env.token_secret;
-    let resources_bucket = sam_env.resources_bucket;
+    let env = SamEnv::init_from_env().unwrap();
 
     let config = aws_config::load_from_env().await;
     let dynamodb_client = aws_sdk_dynamodb::Client::new(&config);
     let s3_client = aws_sdk_s3::Client::new(&config);
-
-    let decoding_key = DecodingKey::from_secret(token_secret.as_ref());
+    let decoding_key = DecodingKey::from_secret(env.token_secret.as_ref());
 
     let config = Config {
+        env,
         dynamodb_client,
         s3_client,
-        campaigns_table,
-        subscriptions_table,
         decoding_key,
-        resources_bucket,
     };
 
     tracing::init_default_subscriber();
